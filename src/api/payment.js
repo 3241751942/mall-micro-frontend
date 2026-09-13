@@ -25,3 +25,12 @@ export function mockPaymentSuccess(paymentNo, orderNo) {
     params: { paymentNo, orderNo }
   })
 }
+
+// 支付宝支付
+export function alipayPagePay(paymentNo, orderId) {
+  return request({
+    url: '/payments/alipay/page-pay',
+    method: 'post',
+    params: { paymentNo, orderId }
+  })
+}

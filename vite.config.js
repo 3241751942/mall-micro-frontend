@@ -10,6 +10,9 @@ export default defineConfig({
     }
   },
   server: {
+    host: '0.0.0.0',           // 允许外部访问
+    port: 5173,                // 保持你的端口
+    allowedHosts: true,        // ✅ 允许所有 Host（解决 Cloudflare Tunnel 访问限制）
     proxy: {
       '/api': {
         target: 'http://localhost:8994',   // 网关地址

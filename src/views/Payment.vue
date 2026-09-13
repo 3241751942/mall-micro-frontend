@@ -8,13 +8,13 @@
         <div class="order-info">
           <p>订单号：{{ paymentInfo.orderNo }}</p>
           <p>支付金额：¥{{ paymentInfo.amount }}</p>
+          <p>支付单号：{{ paymentInfo.paymentNo }}</p>
         </div>
         <div class="payment-methods">
           <h3>选择支付方式</h3>
           <el-radio-group v-model="payMethod">
-            <el-radio value="ALIPAY">支付宝</el-radio>
-            <el-radio value="WECHAT">微信支付</el-radio>
             <el-radio value="BALANCE">模拟支付（测试）</el-radio>
+            <el-radio value="ALIPAY">支付宝</el-radio>
           </el-radio-group>
         </div>
         <div class="actions">
@@ -33,58 +33,74 @@
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { createPayment, mockPaymentSuccess } from '@/api/payment'
+import { mockPaymentSuccess, alipayPagePay } from '@/api/payment'
 import AppTopNav from '@/components/home/AppTopNav.vue'
 
 const route = useRoute()
 const router = useRouter()
+
+// 从 URL 参数获取支付信息
 const orderNo = ref(route.query.orderNo || '')
 const orderId = ref(route.query.orderId ? parseInt(route.query.orderId) : null)
 const amount = ref(route.query.amount ? parseFloat(route.query.amount) : null)
+const paymentNo = ref(route.query.paymentNo || '')
+
 const paymentInfo = ref(null)
 const loading = ref(false)
 const paying = ref(false)
 const payMethod = ref('BALANCE')
 
-// 初始化：直接设置支付信息
+// 初始化
 const initPaymentInfo = () => {
   if (!orderNo.value || !orderId.value || !amount.value) {
     ElMessage.error('订单信息不完整')
     router.push('/order/list')
     return
   }
+  if (!paymentNo.value) {
+    ElMessage.error('支付单号缺失，请重新下单')
+    router.push('/order/list')
+    return
+  }
   paymentInfo.value = {
     orderNo: orderNo.value,
+    orderId: orderId.value,
     amount: amount.value,
-    orderId: orderId.value
+    paymentNo: paymentNo.value
   }
 }
 
 // 发起支付
 const handlePay = async () => {
   if (!paymentInfo.value) return
+  
   paying.value = true
   try {
-    // 创建支付单（后端幂等，若已有未完成支付单则直接返回）
-    const paymentData = {
-      orderId: paymentInfo.value.orderId,
-      userId: 1, // 实际应从 store 或 localStorage 获取当前用户ID
-      amount: paymentInfo.value.amount,
-      payType: payMethod.value
-    }
-    const paymentRes = await createPayment(paymentData)
-    const paymentNo = paymentRes.paymentNo
-
     if (payMethod.value === 'BALANCE') {
-      // 模拟支付成功回调
-      await mockPaymentSuccess(paymentNo, paymentInfo.value.orderNo)
+      await mockPaymentSuccess(paymentInfo.value.paymentNo, paymentInfo.value.orderNo)
       ElMessage.success('支付成功')
-      // 跳转到个人中心的历史订单标签页
       router.push({ path: '/user/profile', query: { tab: 'history' } })
-    } else {
-      // 真实支付：跳转支付网关（示例）
-      const paymentUrl = `http://localhost:8080/pay/gateway?paymentNo=${paymentNo}`
-      window.location.href = paymentUrl
+    } else if (payMethod.value === 'ALIPAY') {
+      const res = await alipayPagePay(
+        paymentInfo.value.paymentNo,
+        paymentInfo.value.orderId
+      )
+      
+      const html = res.data || res
+      if (html && html.includes('form')) {
+        const div = document.createElement('div')
+        div.innerHTML = html
+        document.body.appendChild(div)
+        const form = div.querySelector('form')
+        if (form) {
+          form.submit()
+        } else {
+          ElMessage.error('支付页面加载失败')
+        }
+        setTimeout(() => document.body.removeChild(div), 1000)
+      } else {
+        ElMessage.error('支付页面加载失败')
+      }
     }
   } catch (error) {
     const msg = error.response?.data?.message || error.message || '支付失败'

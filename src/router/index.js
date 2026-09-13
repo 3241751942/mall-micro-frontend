@@ -1,7 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 
-
 // 页面组件懒加载
 const Home = () => import('@/views/Home.vue')
 const Login = () => import('@/views/Login.vue')
@@ -17,6 +16,14 @@ const Favorites = () => import('@/views/Favorites.vue')
 const UserProfile = () => import('@/views/UserProfile.vue')
 const Payment = () => import('@/views/Payment.vue')
 
+// 管理员界面组件（需要先创建这些文件）
+const AdminLayout = () => import('@/views/admin/AdminLayout.vue')
+const AdminProduct = () => import('@/views/admin/AdminProduct.vue')
+const AdminOrder = () => import('@/views/admin/AdminOrder.vue')
+const AdminBrand = () => import('@/views/admin/AdminBrand.vue')
+const AdminCategory = () => import('@/views/admin/AdminCategory.vue')
+const AdminUser = () => import('@/views/admin/AdminUser.vue')
+const AdminLog = () => import('@/views/admin/AdminLog.vue')
 
 const routes = [
   { path: '/', component: Home, meta: { title: '首页', requiresAuth: false } },
@@ -31,8 +38,22 @@ const routes = [
   { path: '/register', component: Register, meta: { title: '注册', requiresAuth: false } },
   { path: '/favorites', component: Favorites, meta: { title: '我的收藏', requiresAuth: true } },
   { path: '/user/profile', component: UserProfile, meta: { title: '我的商城', requiresAuth: true } },
-  { path: '/payment', component: Payment, meta: { title: '订单支付', requiresAuth: true } }
-
+  { path: '/payment', component: Payment, meta: { title: '订单支付', requiresAuth: true } },
+  // 管理员模块（暂时不需要权限验证，仅需登录）
+  {
+    path: '/admin',
+    component: AdminLayout,
+    meta: { title: '管理后台', requiresAuth: true },   // 只要求登录，不限制角色
+    children: [
+      { path: 'product', component: AdminProduct, meta: { title: '商品管理' } },
+      { path: 'order', component: AdminOrder, meta: { title: '订单管理' } },
+      { path: 'brand', component: AdminBrand, meta: { title: '品牌管理' } },
+      { path: 'category', component: AdminCategory, meta: { title: '分类管理' } },
+      { path: 'user', component: AdminUser, meta: { title: '用户管理' } },
+      { path: 'log', component: AdminLog, meta: { title: '日志管理' } },
+      { path: '', redirect: '/admin/product' }
+    ]
+  }
 ]
 
 const router = createRouter({
@@ -40,7 +61,7 @@ const router = createRouter({
   routes
 })
 
-// 全局前置守卫（不使用 next() 回调）
+// 全局前置守卫（只检查登录状态，暂不检查角色权限）
 router.beforeEach((to, from) => {
   const userStore = useUserStore()
   const isLoggedIn = !!userStore.token

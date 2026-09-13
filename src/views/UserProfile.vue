@@ -56,6 +56,8 @@ import {
 import { getOrderList, cancelOrder as cancelOrderApi, getOrderIdByOrderNo } from '@/api/order'
 import { addToCart } from '@/api/cart'
 import { getProductDetail } from '@/api/product'
+import { createPayment } from '@/api/payment'
+
 import AppTopNav from '@/components/home/AppTopNav.vue'
 import UserInfo from '@/components/UserProfile/UserInfo.vue'
 import EditProfileDialog from '@/components/UserProfile/EditProfileDialog.vue'
@@ -183,19 +185,41 @@ const payOrder = async (order) => {
   }
 
   try {
-    // 调用订单服务接口获取订单数字ID
+    // 1. 获取订单数字ID
     const orderId = await getOrderIdByOrderNo(orderNo)
+    
+    // 2. 创建支付单
+    const paymentData = {
+      orderId: orderId,
+      userId: userInfo.value.id,  // 从用户信息中获取 userId
+      amount: amount,
+      payType: 'ALIPAY'  // 默认支付宝支付
+    }
+    
+    const paymentResult = await createPayment(paymentData)
+    const paymentNo = paymentResult.data?.paymentNo || paymentResult.paymentNo
+    
+    if (!paymentNo) {
+      ElMessage.error('创建支付单失败，请重试')
+      return
+    }
+    
+    console.log('支付单创建成功，支付单号：', paymentNo)
+    
+    // 3. 跳转到支付页面，传递支付单号和订单号
     router.push({
       path: '/payment',
       query: {
         orderNo: orderNo,
         orderId: orderId,
-        amount: amount
+        amount: amount,
+        paymentNo: paymentNo  // ✅ 新增支付单号
       }
     })
   } catch (error) {
-    console.error('获取订单ID失败', error)
-    ElMessage.error('获取订单信息失败，请重试')
+    console.error('创建支付单失败', error)
+    const msg = error.response?.data?.message || error.message || '创建支付单失败，请重试'
+    ElMessage.error(msg)
   }
 }
 
